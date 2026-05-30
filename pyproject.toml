@@ -48,9 +48,9 @@ dev = [
 
 [project.urls]
 Homepage = "https://jobo.world/enterprise/"
-Documentation = "https://github.com/Prakkie91/jobo-python#readme"
-Repository = "https://github.com/Prakkie91/jobo-python"
-Issues = "https://github.com/Prakkie91/jobo-python/issues"
+Documentation = "https://github.com/prakkie91/jobo-python#readme"
+Repository = "https://github.com/prakkie91/jobo-python"
+Issues = "https://github.com/prakkie91/jobo-python/issues"
 
 [tool.setuptools.packages.find]
 include = ["jobo_enterprise*"]
