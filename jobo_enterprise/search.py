@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 
 import httpx
 
+from jobo_enterprise.enums import EmploymentType, ExperienceLevel, WorkModel
 from jobo_enterprise.exceptions import _handle_error
 from jobo_enterprise.models import (
     InclusionExclusionFilter,
@@ -22,9 +23,9 @@ def _simple_params(
     q: Optional[str],
     location: Optional[str],
     sources: Optional[str],
-    work_model: Optional[str],
-    employment_type: Optional[str],
-    experience_level: Optional[str],
+    work_model: Optional[Union[str, WorkModel]],
+    employment_type: Optional[Union[str, EmploymentType]],
+    experience_level: Optional[Union[str, ExperienceLevel]],
     posted_after: Optional[datetime],
     min_salary_usd: Optional[int],
     max_salary_usd: Optional[int],
@@ -72,9 +73,9 @@ def _build_body(
     skills: Optional[InclusionExclusionFilter],
     companies: Optional[InclusionExclusionFilter],
     industries: Optional[InclusionExclusionFilter],
-    work_models: Optional[List[str]],
-    employment_types: Optional[List[str]],
-    experience_levels: Optional[List[str]],
+    work_models: Optional[List[Union[str, WorkModel]]],
+    employment_types: Optional[List[Union[str, EmploymentType]]],
+    experience_levels: Optional[List[Union[str, ExperienceLevel]]],
     salary_usd: Optional[RangeFilter],
     posted_after: Optional[datetime],
     include_facets: Optional[List[str]],
@@ -88,9 +89,10 @@ def _build_body(
         skills=skills,
         companies=companies,
         industries=industries,
-        work_models=work_models,
-        employment_types=employment_types,
-        experience_levels=experience_levels,
+        # Normalize enum members to their wire string so the body is plain str.
+        work_models=[str(v) for v in work_models] if work_models is not None else None,
+        employment_types=[str(v) for v in employment_types] if employment_types is not None else None,
+        experience_levels=[str(v) for v in experience_levels] if experience_levels is not None else None,
         salary_usd=salary_usd,
         posted_after=posted_after,
         include_facets=include_facets,
@@ -114,9 +116,9 @@ class JobsSearchClient:
         q: Optional[str] = None,
         location: Optional[str] = None,
         sources: Optional[str] = None,
-        work_model: Optional[str] = None,
-        employment_type: Optional[str] = None,
-        experience_level: Optional[str] = None,
+        work_model: Optional[Union[str, WorkModel]] = None,
+        employment_type: Optional[Union[str, EmploymentType]] = None,
+        experience_level: Optional[Union[str, ExperienceLevel]] = None,
         posted_after: Optional[datetime] = None,
         min_salary_usd: Optional[int] = None,
         max_salary_usd: Optional[int] = None,
@@ -132,9 +134,12 @@ class JobsSearchClient:
             q: Free-text search query.
             location: Location string filter.
             sources: Comma-separated source identifiers.
-            work_model: Comma-separated work models ("remote", "hybrid", "onsite").
-            employment_type: Comma-separated employment types.
-            experience_level: Comma-separated experience levels.
+            work_model: Work model filter. Accepts a :class:`WorkModel` member or
+                its string value (``"remote"``, ``"hybrid"``, ``"onsite"``).
+            employment_type: Employment type. Accepts an :class:`EmploymentType`
+                member or its string value.
+            experience_level: Experience level. Accepts an :class:`ExperienceLevel`
+                member or its string value.
             posted_after: Only jobs posted after this UTC datetime.
             min_salary_usd: Minimum salary (USD) filter.
             max_salary_usd: Maximum salary (USD) filter.
@@ -178,9 +183,9 @@ class JobsSearchClient:
         skills: Optional[InclusionExclusionFilter] = None,
         companies: Optional[InclusionExclusionFilter] = None,
         industries: Optional[InclusionExclusionFilter] = None,
-        work_models: Optional[List[str]] = None,
-        employment_types: Optional[List[str]] = None,
-        experience_levels: Optional[List[str]] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
+        employment_types: Optional[List[Union[str, EmploymentType]]] = None,
+        experience_levels: Optional[List[Union[str, ExperienceLevel]]] = None,
         salary_usd: Optional[RangeFilter] = None,
         posted_after: Optional[datetime] = None,
         include_facets: Optional[List[str]] = None,
@@ -239,9 +244,9 @@ class JobsSearchClient:
         skills: Optional[InclusionExclusionFilter] = None,
         companies: Optional[InclusionExclusionFilter] = None,
         industries: Optional[InclusionExclusionFilter] = None,
-        work_models: Optional[List[str]] = None,
-        employment_types: Optional[List[str]] = None,
-        experience_levels: Optional[List[str]] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
+        employment_types: Optional[List[Union[str, EmploymentType]]] = None,
+        experience_levels: Optional[List[Union[str, ExperienceLevel]]] = None,
         salary_usd: Optional[RangeFilter] = None,
         posted_after: Optional[datetime] = None,
         page_size: int = 25,
@@ -292,9 +297,9 @@ class AsyncJobsSearchClient:
         q: Optional[str] = None,
         location: Optional[str] = None,
         sources: Optional[str] = None,
-        work_model: Optional[str] = None,
-        employment_type: Optional[str] = None,
-        experience_level: Optional[str] = None,
+        work_model: Optional[Union[str, WorkModel]] = None,
+        employment_type: Optional[Union[str, EmploymentType]] = None,
+        experience_level: Optional[Union[str, ExperienceLevel]] = None,
         posted_after: Optional[datetime] = None,
         min_salary_usd: Optional[int] = None,
         max_salary_usd: Optional[int] = None,
@@ -335,9 +340,9 @@ class AsyncJobsSearchClient:
         skills: Optional[InclusionExclusionFilter] = None,
         companies: Optional[InclusionExclusionFilter] = None,
         industries: Optional[InclusionExclusionFilter] = None,
-        work_models: Optional[List[str]] = None,
-        employment_types: Optional[List[str]] = None,
-        experience_levels: Optional[List[str]] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
+        employment_types: Optional[List[Union[str, EmploymentType]]] = None,
+        experience_levels: Optional[List[Union[str, ExperienceLevel]]] = None,
         salary_usd: Optional[RangeFilter] = None,
         posted_after: Optional[datetime] = None,
         include_facets: Optional[List[str]] = None,
@@ -375,9 +380,9 @@ class AsyncJobsSearchClient:
         skills: Optional[InclusionExclusionFilter] = None,
         companies: Optional[InclusionExclusionFilter] = None,
         industries: Optional[InclusionExclusionFilter] = None,
-        work_models: Optional[List[str]] = None,
-        employment_types: Optional[List[str]] = None,
-        experience_levels: Optional[List[str]] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
+        employment_types: Optional[List[Union[str, EmploymentType]]] = None,
+        experience_levels: Optional[List[Union[str, ExperienceLevel]]] = None,
         salary_usd: Optional[RangeFilter] = None,
         posted_after: Optional[datetime] = None,
         page_size: int = 25,

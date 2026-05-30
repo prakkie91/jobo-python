@@ -8,6 +8,7 @@ from uuid import UUID
 
 import httpx
 
+from jobo_enterprise.enums import WorkModel
 from jobo_enterprise.exceptions import _handle_error
 from jobo_enterprise.models import (
     Job,
@@ -32,7 +33,7 @@ class JobsFeedClient:
         *,
         locations: Optional[List[LocationFilter]] = None,
         sources: Optional[List[str]] = None,
-        work_models: Optional[List[str]] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
         posted_after: Optional[datetime] = None,
         cursor: Optional[str] = None,
         batch_size: int = 1000,
@@ -53,7 +54,8 @@ class JobsFeedClient:
         request = JobFeedRequest(
             locations=locations,
             sources=sources,
-            work_models=work_models,
+            # Normalize enum members to their wire string so the body is plain str.
+            work_models=[str(v) for v in work_models] if work_models is not None else None,
             posted_after=posted_after,
             cursor=cursor,
             batch_size=batch_size,
@@ -68,7 +70,7 @@ class JobsFeedClient:
         *,
         locations: Optional[List[LocationFilter]] = None,
         sources: Optional[List[str]] = None,
-        work_models: Optional[List[str]] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
         posted_after: Optional[datetime] = None,
         batch_size: int = 1000,
     ) -> Iterator[Job]:
@@ -158,7 +160,7 @@ class AsyncJobsFeedClient:
         *,
         locations: Optional[List[LocationFilter]] = None,
         sources: Optional[List[str]] = None,
-        work_models: Optional[List[str]] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
         posted_after: Optional[datetime] = None,
         cursor: Optional[str] = None,
         batch_size: int = 1000,
@@ -167,7 +169,8 @@ class AsyncJobsFeedClient:
         request = JobFeedRequest(
             locations=locations,
             sources=sources,
-            work_models=work_models,
+            # Normalize enum members to their wire string so the body is plain str.
+            work_models=[str(v) for v in work_models] if work_models is not None else None,
             posted_after=posted_after,
             cursor=cursor,
             batch_size=batch_size,
@@ -182,7 +185,7 @@ class AsyncJobsFeedClient:
         *,
         locations: Optional[List[LocationFilter]] = None,
         sources: Optional[List[str]] = None,
-        work_models: Optional[List[str]] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
         posted_after: Optional[datetime] = None,
         batch_size: int = 1000,
     ) -> AsyncIterator[Job]:

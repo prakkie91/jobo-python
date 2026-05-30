@@ -104,17 +104,24 @@ Full-text search with filters and page-based pagination.
 ### Simple search
 
 ```python
+from jobo_enterprise import WorkModel
+
 results = client.search.search(
     q="data scientist",
     location="New York",
     sources="greenhouse,lever",
-    work_model="remote",
+    work_model=WorkModel.REMOTE,  # or just "remote"
     min_salary_usd=120000,
     page_size=50,
 )
 
 print(f"Found {results.total} jobs across {results.total_pages} pages")
 ```
+
+> **Closed value sets.** Parameters with a fixed set of accepted values ship as
+> enums for discoverability — `WorkModel`, `EmploymentType`, `ExperienceLevel`,
+> `CompensationPeriod`, and `SkillType`. Each member subclasses `str`, so passing
+> the equivalent literal (e.g. `"remote"`) is always valid too.
 
 ### Advanced search (typed filters & facets)
 

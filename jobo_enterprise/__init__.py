@@ -6,6 +6,13 @@ from jobo_enterprise.search import JobsSearchClient, AsyncJobsSearchClient
 from jobo_enterprise.companies import CompaniesClient, AsyncCompaniesClient
 from jobo_enterprise.locations import LocationsClient, AsyncLocationsClient
 from jobo_enterprise.auto_apply import AutoApplyClient, AsyncAutoApplyClient
+from jobo_enterprise.enums import (
+    WorkModel,
+    EmploymentType,
+    ExperienceLevel,
+    CompensationPeriod,
+    SkillType,
+)
 from jobo_enterprise.models import (
     # Jobs
     Job,
@@ -84,6 +91,12 @@ __all__ = [
     "AsyncLocationsClient",
     "AutoApplyClient",
     "AsyncAutoApplyClient",
+    # Enums (closed value sets)
+    "WorkModel",
+    "EmploymentType",
+    "ExperienceLevel",
+    "CompensationPeriod",
+    "SkillType",
     # Job models
     "Job",
     "JobCompany",
