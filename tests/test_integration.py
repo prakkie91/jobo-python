@@ -155,11 +155,12 @@ class TestSyncJobModel:
         assert job.listing_url
         assert job.apply_url
         assert job.source
-        assert job.source_id
         assert job.created_at is not None
         assert job.updated_at is not None
-        assert isinstance(job.is_remote, bool)
         assert isinstance(job.locations, list)
+        assert job.qualifications is not None
+        assert isinstance(job.responsibilities, list)
+        assert isinstance(job.benefits, list)
 
 
 # ── Sync client: Geocoding ─────────────────────────────────────────────
@@ -184,6 +185,44 @@ class TestSyncGeocoding:
 
         assert result is not None
         # May succeed with remote keyword parsing or fail - just check response
+
+
+# ── Sync client: Companies ─────────────────────────────────────────────
+
+
+@requires_api_key
+class TestSyncCompanies:
+    def test_get_company_and_jobs(self, client: JoboClient):
+        # Resolve a company id from a search result, then fetch its profile + jobs.
+        search = client.search.search(q="engineer", page_size=1)
+        if not search.jobs:
+            pytest.skip("No jobs available to resolve a company id")
+
+        company_id = search.jobs[0].company.id
+
+        company = client.companies.get(company_id)
+        assert company.id == company_id
+        assert company.name
+
+        jobs = client.companies.get_jobs(company_id, page_size=5)
+        assert jobs is not None
+        assert jobs.page == 1
+
+
+# ── Sync client: Search facets ─────────────────────────────────────────
+
+
+@requires_api_key
+class TestSyncSearchFacets:
+    def test_advanced_search_returns_facets(self, client: JoboClient):
+        response = client.search.search_advanced(
+            queries=["engineer"],
+            include_facets=["work_model", "experience_level"],
+            page_size=5,
+        )
+
+        assert response is not None
+        assert isinstance(response.facets, dict)
 
 
 # ── Sync client: AutoApply (disabled – not yet implemented) ─────────────

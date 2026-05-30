@@ -8,12 +8,13 @@ import httpx
 
 from jobo_enterprise.feed import JobsFeedClient, AsyncJobsFeedClient
 from jobo_enterprise.search import JobsSearchClient, AsyncJobsSearchClient
+from jobo_enterprise.companies import CompaniesClient, AsyncCompaniesClient
 from jobo_enterprise.locations import LocationsClient, AsyncLocationsClient
 from jobo_enterprise.auto_apply import AutoApplyClient, AsyncAutoApplyClient
 
 _DEFAULT_BASE_URL = "https://jobs-api.jobo.world"
 _DEFAULT_TIMEOUT = 30.0
-_USER_AGENT = "jobo-python/2.0.0"
+_USER_AGENT = "jobo-python/3.0.0"
 
 
 class JoboClient:
@@ -23,6 +24,7 @@ class JoboClient:
 
     - ``client.feed`` — Bulk job feed with cursor-based pagination
     - ``client.search`` — Full-text job search with filters
+    - ``client.companies`` — Enriched company profiles and per-company jobs
     - ``client.locations`` — Geocoding and location resolution
     - ``client.auto_apply`` — Automated job application form filling
 
@@ -59,6 +61,9 @@ class JoboClient:
         self.search = JobsSearchClient(self._client)
         """Full-text job search with filters and pagination."""
 
+        self.companies = CompaniesClient(self._client)
+        """Enriched company profiles and per-company job listings."""
+
         self.locations = LocationsClient(self._client)
         """Geocoding and location resolution."""
 
@@ -83,6 +88,7 @@ class AsyncJoboClient:
 
     - ``client.feed`` — Bulk job feed with cursor-based pagination
     - ``client.search`` — Full-text job search with filters
+    - ``client.companies`` — Enriched company profiles and per-company jobs
     - ``client.locations`` — Geocoding and location resolution
     - ``client.auto_apply`` — Automated job application form filling
 
@@ -118,6 +124,9 @@ class AsyncJoboClient:
 
         self.search = AsyncJobsSearchClient(self._client)
         """Full-text job search with filters and pagination."""
+
+        self.companies = AsyncCompaniesClient(self._client)
+        """Enriched company profiles and per-company job listings."""
 
         self.locations = AsyncLocationsClient(self._client)
         """Geocoding and location resolution."""

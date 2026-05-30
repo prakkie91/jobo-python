@@ -32,7 +32,7 @@ class JobsFeedClient:
         *,
         locations: Optional[List[LocationFilter]] = None,
         sources: Optional[List[str]] = None,
-        is_remote: Optional[bool] = None,
+        work_models: Optional[List[str]] = None,
         posted_after: Optional[datetime] = None,
         cursor: Optional[str] = None,
         batch_size: int = 1000,
@@ -42,7 +42,7 @@ class JobsFeedClient:
         Args:
             locations: Structured location filters. Job matches ANY provided location.
             sources: ATS/source identifiers (e.g. ``"greenhouse"``, ``"workday"``).
-            is_remote: ``True`` = remote only, ``False`` = on-site only, ``None`` = all.
+            work_models: Work models to include, e.g. ``["remote", "hybrid"]``. ``None`` = all.
             posted_after: Only jobs posted after this UTC datetime.
             cursor: Pagination cursor from a previous response.
             batch_size: Number of jobs per batch (1–1000). Defaults to 1000.
@@ -53,12 +53,12 @@ class JobsFeedClient:
         request = JobFeedRequest(
             locations=locations,
             sources=sources,
-            is_remote=is_remote,
+            work_models=work_models,
             posted_after=posted_after,
             cursor=cursor,
             batch_size=batch_size,
         )
-        resp = self._client.post("/api/feed/jobs", json=request.model_dump(exclude_none=True))
+        resp = self._client.post("/api/jobs/feed", json=request.model_dump(mode="json", exclude_none=True))
         if resp.status_code != 200:
             _handle_error(resp)
         return JobFeedResponse.model_validate(resp.json())
@@ -68,7 +68,7 @@ class JobsFeedClient:
         *,
         locations: Optional[List[LocationFilter]] = None,
         sources: Optional[List[str]] = None,
-        is_remote: Optional[bool] = None,
+        work_models: Optional[List[str]] = None,
         posted_after: Optional[datetime] = None,
         batch_size: int = 1000,
     ) -> Iterator[Job]:
@@ -82,7 +82,7 @@ class JobsFeedClient:
             response = self.get_jobs(
                 locations=locations,
                 sources=sources,
-                is_remote=is_remote,
+                work_models=work_models,
                 posted_after=posted_after,
                 cursor=cursor,
                 batch_size=batch_size,
@@ -115,7 +115,7 @@ class JobsFeedClient:
         }
         if cursor:
             params["cursor"] = cursor
-        resp = self._client.get("/api/feed/jobs/expired", params=params)
+        resp = self._client.get("/api/jobs/expired", params=params)
         if resp.status_code != 200:
             _handle_error(resp)
         return ExpiredJobIdsResponse.model_validate(resp.json())
@@ -158,7 +158,7 @@ class AsyncJobsFeedClient:
         *,
         locations: Optional[List[LocationFilter]] = None,
         sources: Optional[List[str]] = None,
-        is_remote: Optional[bool] = None,
+        work_models: Optional[List[str]] = None,
         posted_after: Optional[datetime] = None,
         cursor: Optional[str] = None,
         batch_size: int = 1000,
@@ -167,12 +167,12 @@ class AsyncJobsFeedClient:
         request = JobFeedRequest(
             locations=locations,
             sources=sources,
-            is_remote=is_remote,
+            work_models=work_models,
             posted_after=posted_after,
             cursor=cursor,
             batch_size=batch_size,
         )
-        resp = await self._client.post("/api/feed/jobs", json=request.model_dump(exclude_none=True))
+        resp = await self._client.post("/api/jobs/feed", json=request.model_dump(mode="json", exclude_none=True))
         if resp.status_code != 200:
             _handle_error(resp)
         return JobFeedResponse.model_validate(resp.json())
@@ -182,7 +182,7 @@ class AsyncJobsFeedClient:
         *,
         locations: Optional[List[LocationFilter]] = None,
         sources: Optional[List[str]] = None,
-        is_remote: Optional[bool] = None,
+        work_models: Optional[List[str]] = None,
         posted_after: Optional[datetime] = None,
         batch_size: int = 1000,
     ) -> AsyncIterator[Job]:
@@ -192,7 +192,7 @@ class AsyncJobsFeedClient:
             response = await self.get_jobs(
                 locations=locations,
                 sources=sources,
-                is_remote=is_remote,
+                work_models=work_models,
                 posted_after=posted_after,
                 cursor=cursor,
                 batch_size=batch_size,
@@ -217,7 +217,7 @@ class AsyncJobsFeedClient:
         }
         if cursor:
             params["cursor"] = cursor
-        resp = await self._client.get("/api/feed/jobs/expired", params=params)
+        resp = await self._client.get("/api/jobs/expired", params=params)
         if resp.status_code != 200:
             _handle_error(resp)
         return ExpiredJobIdsResponse.model_validate(resp.json())

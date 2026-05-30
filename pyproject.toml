@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jobo-enterprise"
-version = "2.0.0"
+version = "3.0.0"
 description = "Official Python client for the Jobo Enterprise API. Access millions of job listings from 45+ ATS platforms, geocode locations, and automate job applications. Organized by feature area: Feed, Search, Locations, and Auto Apply."
 readme = "README.md"
 license = { text = "MIT" }
