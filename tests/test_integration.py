@@ -65,7 +65,13 @@ class TestSyncFeed:
         second = client.feed.get_jobs(cursor=first.next_cursor, batch_size=2)
         assert second is not None
         assert len(second.jobs) > 0
-        assert second.jobs[0].id != first.jobs[0].id
+        # The feed mutates live (jobs get re-scraped and bubble back toward the
+        # top), so a single job can legitimately re-surface across a page
+        # boundary. Assert the page *advanced* — at least one job on page 2 was
+        # not on page 1 — rather than comparing the first element, which flakes
+        # on a moving dataset.
+        first_ids = {j.id for j in first.jobs}
+        assert any(j.id not in first_ids for j in second.jobs)
 
     def test_iter_jobs_feed_yields_jobs(self, client: JoboClient):
         jobs: list[Job] = []
