@@ -3,16 +3,102 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import AsyncIterator, Iterator, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 
 import httpx
 
+from jobo_enterprise.enums import EmploymentType, ExperienceLevel, WorkModel
 from jobo_enterprise.exceptions import _handle_error
 from jobo_enterprise.models import (
+    InclusionExclusionFilter,
     Job,
-    JobSearchRequest,
+    JobSearchBodyRequest,
     JobSearchResponse,
+    RangeFilter,
 )
+
+
+def _simple_params(
+    *,
+    q: Optional[str],
+    location: Optional[str],
+    sources: Optional[str],
+    work_model: Optional[Union[str, WorkModel]],
+    employment_type: Optional[Union[str, EmploymentType]],
+    experience_level: Optional[Union[str, ExperienceLevel]],
+    posted_after: Optional[datetime],
+    min_salary_usd: Optional[int],
+    max_salary_usd: Optional[int],
+    skills: Optional[str],
+    industries: Optional[str],
+    include_facets: Optional[str],
+    page: int,
+    page_size: int,
+) -> Dict[str, Any]:
+    params: Dict[str, Any] = {}
+    if q:
+        params["q"] = q
+    if location:
+        params["location"] = location
+    if sources:
+        params["sources"] = sources
+    if work_model:
+        params["work_model"] = work_model
+    if employment_type:
+        params["employment_type"] = employment_type
+    if experience_level:
+        params["experience_level"] = experience_level
+    if posted_after:
+        params["posted_after"] = posted_after.isoformat()
+    if min_salary_usd is not None:
+        params["min_salary_usd"] = min_salary_usd
+    if max_salary_usd is not None:
+        params["max_salary_usd"] = max_salary_usd
+    if skills:
+        params["skills"] = skills
+    if industries:
+        params["industries"] = industries
+    if include_facets is not None:
+        params["include_facets"] = include_facets
+    params["page"] = page
+    params["page_size"] = page_size
+    return params
+
+
+def _build_body(
+    *,
+    queries: Optional[List[str]],
+    locations: Optional[List[str]],
+    sources: Optional[List[str]],
+    skills: Optional[InclusionExclusionFilter],
+    companies: Optional[InclusionExclusionFilter],
+    industries: Optional[InclusionExclusionFilter],
+    work_models: Optional[List[Union[str, WorkModel]]],
+    employment_types: Optional[List[Union[str, EmploymentType]]],
+    experience_levels: Optional[List[Union[str, ExperienceLevel]]],
+    salary_usd: Optional[RangeFilter],
+    posted_after: Optional[datetime],
+    include_facets: Optional[List[str]],
+    page: int,
+    page_size: int,
+) -> JobSearchBodyRequest:
+    return JobSearchBodyRequest(
+        queries=queries,
+        locations=locations,
+        sources=sources,
+        skills=skills,
+        companies=companies,
+        industries=industries,
+        # Normalize enum members to their wire string so the body is plain str.
+        work_models=[str(v) for v in work_models] if work_models is not None else None,
+        employment_types=[str(v) for v in employment_types] if employment_types is not None else None,
+        experience_levels=[str(v) for v in experience_levels] if experience_levels is not None else None,
+        salary_usd=salary_usd,
+        posted_after=posted_after,
+        include_facets=include_facets,
+        page=page,
+        page_size=page_size,
+    )
 
 
 class JobsSearchClient:
@@ -30,8 +116,15 @@ class JobsSearchClient:
         q: Optional[str] = None,
         location: Optional[str] = None,
         sources: Optional[str] = None,
-        remote: Optional[bool] = None,
+        work_model: Optional[Union[str, WorkModel]] = None,
+        employment_type: Optional[Union[str, EmploymentType]] = None,
+        experience_level: Optional[Union[str, ExperienceLevel]] = None,
         posted_after: Optional[datetime] = None,
+        min_salary_usd: Optional[int] = None,
+        max_salary_usd: Optional[int] = None,
+        skills: Optional[str] = None,
+        industries: Optional[str] = None,
+        include_facets: Optional[str] = None,
         page: int = 1,
         page_size: int = 25,
     ) -> JobSearchResponse:
@@ -41,28 +134,41 @@ class JobsSearchClient:
             q: Free-text search query.
             location: Location string filter.
             sources: Comma-separated source identifiers.
-            remote: ``True`` = remote only, ``False`` = on-site only.
+            work_model: Work model filter. Accepts a :class:`WorkModel` member or
+                its string value (``"remote"``, ``"hybrid"``, ``"onsite"``).
+            employment_type: Employment type. Accepts an :class:`EmploymentType`
+                member or its string value.
+            experience_level: Experience level. Accepts an :class:`ExperienceLevel`
+                member or its string value.
             posted_after: Only jobs posted after this UTC datetime.
+            min_salary_usd: Minimum salary (USD) filter.
+            max_salary_usd: Maximum salary (USD) filter.
+            skills: Comma-separated required skills.
+            industries: Comma-separated company industries.
+            include_facets: Comma-separated facets to compute. Pass ``""`` to skip
+                facets entirely; omit (``None``) for the default subset.
             page: Page number (1-indexed).
             page_size: Results per page (1–100).
 
         Returns:
             A :class:`JobSearchResponse` with jobs and pagination metadata.
         """
-        params: dict[str, Union[str, int, bool]] = {}
-        if q:
-            params["q"] = q
-        if location:
-            params["location"] = location
-        if sources:
-            params["sources"] = sources
-        if remote is not None:
-            params["remote"] = remote
-        if posted_after:
-            params["posted_after"] = posted_after.isoformat()
-        params["page"] = page
-        params["page_size"] = page_size
-
+        params = _simple_params(
+            q=q,
+            location=location,
+            sources=sources,
+            work_model=work_model,
+            employment_type=employment_type,
+            experience_level=experience_level,
+            posted_after=posted_after,
+            min_salary_usd=min_salary_usd,
+            max_salary_usd=max_salary_usd,
+            skills=skills,
+            industries=industries,
+            include_facets=include_facets,
+            page=page,
+            page_size=page_size,
+        )
         resp = self._client.get("/api/jobs", params=params)
         if resp.status_code != 200:
             _handle_error(resp)
@@ -74,35 +180,57 @@ class JobsSearchClient:
         queries: Optional[List[str]] = None,
         locations: Optional[List[str]] = None,
         sources: Optional[List[str]] = None,
-        is_remote: Optional[bool] = None,
+        skills: Optional[InclusionExclusionFilter] = None,
+        companies: Optional[InclusionExclusionFilter] = None,
+        industries: Optional[InclusionExclusionFilter] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
+        employment_types: Optional[List[Union[str, EmploymentType]]] = None,
+        experience_levels: Optional[List[Union[str, ExperienceLevel]]] = None,
+        salary_usd: Optional[RangeFilter] = None,
         posted_after: Optional[datetime] = None,
+        include_facets: Optional[List[str]] = None,
         page: int = 1,
         page_size: int = 25,
     ) -> JobSearchResponse:
         """Search jobs using the advanced body-based endpoint (POST /api/jobs/search).
 
         Args:
-            queries: Multiple search queries.
+            queries: Multiple free-text search queries.
             locations: Multiple location strings.
             sources: ATS/source identifiers.
-            is_remote: ``True`` = remote only, ``False`` = on-site only.
+            skills: Include/exclude skills filter.
+            companies: Include/exclude company-name filter.
+            industries: Include/exclude company-industry filter.
+            work_models: Work models ("remote", "hybrid", "onsite").
+            employment_types: Employment types.
+            experience_levels: Experience levels.
+            salary_usd: Salary range (USD) filter.
             posted_after: Only jobs posted after this UTC datetime.
+            include_facets: Facets to compute. Omit for the default subset; pass an
+                empty list to skip facets entirely.
             page: Page number (1-indexed).
             page_size: Results per page (1–100).
 
         Returns:
-            A :class:`JobSearchResponse` with jobs and pagination metadata.
+            A :class:`JobSearchResponse` with jobs, pagination metadata, and facets.
         """
-        request = JobSearchRequest(
+        request = _build_body(
             queries=queries,
             locations=locations,
             sources=sources,
-            is_remote=is_remote,
+            skills=skills,
+            companies=companies,
+            industries=industries,
+            work_models=work_models,
+            employment_types=employment_types,
+            experience_levels=experience_levels,
+            salary_usd=salary_usd,
             posted_after=posted_after,
+            include_facets=include_facets,
             page=page,
             page_size=page_size,
         )
-        resp = self._client.post("/api/jobs/search", json=request.model_dump(exclude_none=True))
+        resp = self._client.post("/api/jobs/search", json=request.model_dump(mode="json", exclude_none=True))
         if resp.status_code != 200:
             _handle_error(resp)
         return JobSearchResponse.model_validate(resp.json())
@@ -113,7 +241,13 @@ class JobsSearchClient:
         queries: Optional[List[str]] = None,
         locations: Optional[List[str]] = None,
         sources: Optional[List[str]] = None,
-        is_remote: Optional[bool] = None,
+        skills: Optional[InclusionExclusionFilter] = None,
+        companies: Optional[InclusionExclusionFilter] = None,
+        industries: Optional[InclusionExclusionFilter] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
+        employment_types: Optional[List[Union[str, EmploymentType]]] = None,
+        experience_levels: Optional[List[Union[str, ExperienceLevel]]] = None,
+        salary_usd: Optional[RangeFilter] = None,
         posted_after: Optional[datetime] = None,
         page_size: int = 25,
     ) -> Iterator[Job]:
@@ -130,8 +264,15 @@ class JobsSearchClient:
                 queries=queries,
                 locations=locations,
                 sources=sources,
-                is_remote=is_remote,
+                skills=skills,
+                companies=companies,
+                industries=industries,
+                work_models=work_models,
+                employment_types=employment_types,
+                experience_levels=experience_levels,
+                salary_usd=salary_usd,
                 posted_after=posted_after,
+                include_facets=[],
                 page=page,
                 page_size=page_size,
             )
@@ -156,26 +297,35 @@ class AsyncJobsSearchClient:
         q: Optional[str] = None,
         location: Optional[str] = None,
         sources: Optional[str] = None,
-        remote: Optional[bool] = None,
+        work_model: Optional[Union[str, WorkModel]] = None,
+        employment_type: Optional[Union[str, EmploymentType]] = None,
+        experience_level: Optional[Union[str, ExperienceLevel]] = None,
         posted_after: Optional[datetime] = None,
+        min_salary_usd: Optional[int] = None,
+        max_salary_usd: Optional[int] = None,
+        skills: Optional[str] = None,
+        industries: Optional[str] = None,
+        include_facets: Optional[str] = None,
         page: int = 1,
         page_size: int = 25,
     ) -> JobSearchResponse:
         """Search jobs using simple query parameters (GET /api/jobs)."""
-        params: dict[str, Union[str, int, bool]] = {}
-        if q:
-            params["q"] = q
-        if location:
-            params["location"] = location
-        if sources:
-            params["sources"] = sources
-        if remote is not None:
-            params["remote"] = remote
-        if posted_after:
-            params["posted_after"] = posted_after.isoformat()
-        params["page"] = page
-        params["page_size"] = page_size
-
+        params = _simple_params(
+            q=q,
+            location=location,
+            sources=sources,
+            work_model=work_model,
+            employment_type=employment_type,
+            experience_level=experience_level,
+            posted_after=posted_after,
+            min_salary_usd=min_salary_usd,
+            max_salary_usd=max_salary_usd,
+            skills=skills,
+            industries=industries,
+            include_facets=include_facets,
+            page=page,
+            page_size=page_size,
+        )
         resp = await self._client.get("/api/jobs", params=params)
         if resp.status_code != 200:
             _handle_error(resp)
@@ -187,22 +337,36 @@ class AsyncJobsSearchClient:
         queries: Optional[List[str]] = None,
         locations: Optional[List[str]] = None,
         sources: Optional[List[str]] = None,
-        is_remote: Optional[bool] = None,
+        skills: Optional[InclusionExclusionFilter] = None,
+        companies: Optional[InclusionExclusionFilter] = None,
+        industries: Optional[InclusionExclusionFilter] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
+        employment_types: Optional[List[Union[str, EmploymentType]]] = None,
+        experience_levels: Optional[List[Union[str, ExperienceLevel]]] = None,
+        salary_usd: Optional[RangeFilter] = None,
         posted_after: Optional[datetime] = None,
+        include_facets: Optional[List[str]] = None,
         page: int = 1,
         page_size: int = 25,
     ) -> JobSearchResponse:
         """Search jobs using the advanced body-based endpoint (POST /api/jobs/search)."""
-        request = JobSearchRequest(
+        request = _build_body(
             queries=queries,
             locations=locations,
             sources=sources,
-            is_remote=is_remote,
+            skills=skills,
+            companies=companies,
+            industries=industries,
+            work_models=work_models,
+            employment_types=employment_types,
+            experience_levels=experience_levels,
+            salary_usd=salary_usd,
             posted_after=posted_after,
+            include_facets=include_facets,
             page=page,
             page_size=page_size,
         )
-        resp = await self._client.post("/api/jobs/search", json=request.model_dump(exclude_none=True))
+        resp = await self._client.post("/api/jobs/search", json=request.model_dump(mode="json", exclude_none=True))
         if resp.status_code != 200:
             _handle_error(resp)
         return JobSearchResponse.model_validate(resp.json())
@@ -213,7 +377,13 @@ class AsyncJobsSearchClient:
         queries: Optional[List[str]] = None,
         locations: Optional[List[str]] = None,
         sources: Optional[List[str]] = None,
-        is_remote: Optional[bool] = None,
+        skills: Optional[InclusionExclusionFilter] = None,
+        companies: Optional[InclusionExclusionFilter] = None,
+        industries: Optional[InclusionExclusionFilter] = None,
+        work_models: Optional[List[Union[str, WorkModel]]] = None,
+        employment_types: Optional[List[Union[str, EmploymentType]]] = None,
+        experience_levels: Optional[List[Union[str, ExperienceLevel]]] = None,
+        salary_usd: Optional[RangeFilter] = None,
         posted_after: Optional[datetime] = None,
         page_size: int = 25,
     ) -> AsyncIterator[Job]:
@@ -224,8 +394,15 @@ class AsyncJobsSearchClient:
                 queries=queries,
                 locations=locations,
                 sources=sources,
-                is_remote=is_remote,
+                skills=skills,
+                companies=companies,
+                industries=industries,
+                work_models=work_models,
+                employment_types=employment_types,
+                experience_levels=experience_levels,
+                salary_usd=salary_usd,
                 posted_after=posted_after,
+                include_facets=[],
                 page=page,
                 page_size=page_size,
             )

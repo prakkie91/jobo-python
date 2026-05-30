@@ -70,7 +70,7 @@ response = client.feed.get_jobs(
         LocationFilter(country="US", city="New York"),
     ],
     sources=["greenhouse", "workday"],
-    is_remote=True,
+    work_models=["remote", "hybrid"],
     batch_size=1000,
 )
 
@@ -104,27 +104,43 @@ Full-text search with filters and page-based pagination.
 ### Simple search
 
 ```python
+from jobo_enterprise import WorkModel
+
 results = client.search.search(
     q="data scientist",
     location="New York",
     sources="greenhouse,lever",
-    remote=True,
+    work_model=WorkModel.REMOTE,  # or just "remote"
+    min_salary_usd=120000,
     page_size=50,
 )
 
 print(f"Found {results.total} jobs across {results.total_pages} pages")
 ```
 
-### Advanced search (multiple queries & locations)
+> **Closed value sets.** Parameters with a fixed set of accepted values ship as
+> enums for discoverability — `WorkModel`, `EmploymentType`, `ExperienceLevel`,
+> `CompensationPeriod`, and `SkillType`. Each member subclasses `str`, so passing
+> the equivalent literal (e.g. `"remote"`) is always valid too.
+
+### Advanced search (typed filters & facets)
 
 ```python
+from jobo_enterprise import InclusionExclusionFilter, RangeFilter
+
 results = client.search.search_advanced(
     queries=["machine learning engineer", "ML engineer", "AI engineer"],
-    locations=["San Francisco", "New York", "Remote"],
+    locations=["San Francisco", "New York"],
     sources=["greenhouse", "lever", "ashby"],
-    is_remote=True,
+    work_models=["remote", "hybrid"],
+    skills=InclusionExclusionFilter(include=["python"], exclude=["php"]),
+    salary_usd=RangeFilter(min=150000),
+    include_facets=["work_model", "experience_level"],
     page_size=100,
 )
+
+for facet, buckets in results.facets.items():
+    print(facet, [(b.key, b.count) for b in buckets])
 ```
 
 ### Auto-paginate all results
@@ -136,6 +152,21 @@ for job in client.search.iter_jobs(
     page_size=100,
 ):
     print(f"{job.title} — {job.company.name}")
+```
+
+---
+
+## Companies — `client.companies`
+
+Fetch fully enriched company profiles and list jobs scoped to a company.
+
+```python
+company = client.companies.get(job.company.id)
+print(company.name, company.website, company.industries)
+
+# Jobs for a single company (paginated)
+jobs = client.companies.get_jobs(job.company.id, page_size=50)
+print(f"{jobs.total} jobs at {company.name}")
 ```
 
 ---
@@ -166,11 +197,11 @@ session = client.auto_apply.start_session(job.apply_url)
 print(f"Provider: {session.provider_display_name}")
 print(f"Fields: {len(session.fields)}")
 
-# Fill in fields
+# Fill in fields — `type` mirrors the FormFieldInfo.type of each field
 answers = [
-    FieldAnswer(field_id="first_name", value="John"),
-    FieldAnswer(field_id="last_name", value="Doe"),
-    FieldAnswer(field_id="email", value="john@example.com"),
+    FieldAnswer(field_id="first_name", type="text", value="John"),
+    FieldAnswer(field_id="last_name", type="text", value="Doe"),
+    FieldAnswer(field_id="email", type="text", value="john@example.com"),
 ]
 
 result = client.auto_apply.set_answers(session.session_id, answers)
@@ -180,6 +211,26 @@ if result.is_terminal:
 
 # Clean up
 client.auto_apply.end_session(session.session_id)
+```
+
+### Profiles & one-shot run
+
+```python
+from jobo_enterprise import AutoApplyProfileRequest
+
+profile = client.auto_apply.create_profile(
+    AutoApplyProfileRequest(
+        name="Default",
+        first_name="John",
+        last_name="Doe",
+        email="john@example.com",
+        phone="+1-555-0100",
+    )
+)
+
+# Run the full flow end-to-end against the stored profile
+run = client.auto_apply.run(profile.id, job.apply_url)
+print(run.status, run.steps_completed, run.fields_filled)
 ```
 
 ---
@@ -247,7 +298,7 @@ except JoboServerError:
 | Parameter      | Default                       | Description                  |
 | -------------- | ----------------------------- | ---------------------------- |
 | `api_key`      | _required_                    | Your API key                 |
-| `base_url`     | `https://jobs-api.jobo.world` | API base URL                 |
+| `base_url`     | `https://connect.jobo.world` | API base URL                 |
 | `timeout`      | `30.0`                        | Request timeout (seconds)    |
 | `httpx_client` | `None`                        | Custom httpx client          |
 
