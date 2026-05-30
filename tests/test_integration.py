@@ -16,7 +16,7 @@ from jobo_enterprise.exceptions import JoboAuthenticationError
 from jobo_enterprise.models import Job
 
 API_KEY = os.environ.get("JOBO_API_KEY")
-BASE_URL = os.environ.get("JOBO_BASE_URL", "https://jobs-api.jobo.world")
+BASE_URL = os.environ.get("JOBO_BASE_URL", "https://connect.jobo.world")
 
 requires_api_key = pytest.mark.skipif(not API_KEY, reason="JOBO_API_KEY not set")
 

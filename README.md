@@ -298,7 +298,7 @@ except JoboServerError:
 | Parameter      | Default                       | Description                  |
 | -------------- | ----------------------------- | ---------------------------- |
 | `api_key`      | _required_                    | Your API key                 |
-| `base_url`     | `https://jobs-api.jobo.world` | API base URL                 |
+| `base_url`     | `https://connect.jobo.world` | API base URL                 |
 | `timeout`      | `30.0`                        | Request timeout (seconds)    |
 | `httpx_client` | `None`                        | Custom httpx client          |
 

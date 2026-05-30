@@ -9,7 +9,7 @@ import pytest
 from jobo_enterprise.client import AsyncJoboClient, JoboClient
 
 API_KEY = os.environ.get("JOBO_API_KEY", "")
-BASE_URL = os.environ.get("JOBO_BASE_URL", "https://jobs-api.jobo.world")
+BASE_URL = os.environ.get("JOBO_BASE_URL", "https://connect.jobo.world")
 
 
 @pytest.fixture
