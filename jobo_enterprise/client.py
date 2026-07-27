@@ -10,11 +10,11 @@ from jobo_enterprise.feed import JobsFeedClient, AsyncJobsFeedClient
 from jobo_enterprise.search import JobsSearchClient, AsyncJobsSearchClient
 from jobo_enterprise.companies import CompaniesClient, AsyncCompaniesClient
 from jobo_enterprise.locations import LocationsClient, AsyncLocationsClient
-from jobo_enterprise.auto_apply import AutoApplyClient, AsyncAutoApplyClient
+from jobo_enterprise._transport import DEFAULT_FEED_TIMEOUT
 
 _DEFAULT_BASE_URL = "https://connect.jobo.world"
 _DEFAULT_TIMEOUT = 30.0
-_USER_AGENT = "jobo-python/3.0.0"
+_USER_AGENT = "jobo-python/4.0.0"
 
 
 class JoboClient:
@@ -26,12 +26,13 @@ class JoboClient:
     - ``client.search`` — Full-text job search with filters
     - ``client.companies`` — Enriched company profiles and per-company jobs
     - ``client.locations`` — Geocoding and location resolution
-    - ``client.auto_apply`` — Automated job application form filling
 
     Args:
         api_key: Your Jobo Enterprise API key.
         base_url: API base URL. Defaults to ``https://connect.jobo.world``.
         timeout: Request timeout in seconds. Defaults to 30.
+        feed_timeout: Response timeout in seconds for the two feed endpoints,
+            which stream up to 1,000 full job records per call. Defaults to 120.
         httpx_client: Optional pre-configured ``httpx.Client`` instance.
     """
 
@@ -41,6 +42,7 @@ class JoboClient:
         *,
         base_url: str = _DEFAULT_BASE_URL,
         timeout: float = _DEFAULT_TIMEOUT,
+        feed_timeout: float = DEFAULT_FEED_TIMEOUT,
         httpx_client: Optional[httpx.Client] = None,
     ) -> None:
         self._api_key = api_key
@@ -55,7 +57,7 @@ class JoboClient:
             },
         )
 
-        self.feed = JobsFeedClient(self._client)
+        self.feed = JobsFeedClient(self._client, feed_timeout=feed_timeout)
         """Bulk job feed with cursor-based pagination."""
 
         self.search = JobsSearchClient(self._client)
@@ -66,9 +68,6 @@ class JoboClient:
 
         self.locations = LocationsClient(self._client)
         """Geocoding and location resolution."""
-
-        self.auto_apply = AutoApplyClient(self._client)
-        """Automated job application form filling."""
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -90,12 +89,13 @@ class AsyncJoboClient:
     - ``client.search`` — Full-text job search with filters
     - ``client.companies`` — Enriched company profiles and per-company jobs
     - ``client.locations`` — Geocoding and location resolution
-    - ``client.auto_apply`` — Automated job application form filling
 
     Args:
         api_key: Your Jobo Enterprise API key.
         base_url: API base URL. Defaults to ``https://connect.jobo.world``.
         timeout: Request timeout in seconds. Defaults to 30.
+        feed_timeout: Response timeout in seconds for the two feed endpoints,
+            which stream up to 1,000 full job records per call. Defaults to 120.
         httpx_client: Optional pre-configured ``httpx.AsyncClient`` instance.
     """
 
@@ -105,6 +105,7 @@ class AsyncJoboClient:
         *,
         base_url: str = _DEFAULT_BASE_URL,
         timeout: float = _DEFAULT_TIMEOUT,
+        feed_timeout: float = DEFAULT_FEED_TIMEOUT,
         httpx_client: Optional[httpx.AsyncClient] = None,
     ) -> None:
         self._api_key = api_key
@@ -119,7 +120,7 @@ class AsyncJoboClient:
             },
         )
 
-        self.feed = AsyncJobsFeedClient(self._client)
+        self.feed = AsyncJobsFeedClient(self._client, feed_timeout=feed_timeout)
         """Bulk job feed with cursor-based pagination."""
 
         self.search = AsyncJobsSearchClient(self._client)
@@ -130,9 +131,6 @@ class AsyncJoboClient:
 
         self.locations = AsyncLocationsClient(self._client)
         """Geocoding and location resolution."""
-
-        self.auto_apply = AsyncAutoApplyClient(self._client)
-        """Automated job application form filling."""
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""
