@@ -1,9 +1,13 @@
 """Closed value sets for the Jobo Enterprise Jobs API.
 
 Each class subclasses :class:`str`, so its members *are* plain strings: they
-serialize to the snake_case wire value and can be used anywhere a raw string is
+serialize to the canonical wire value and can be used anywhere a raw string is
 accepted. They exist purely for discoverability and autocomplete — passing the
 equivalent string literal (e.g. ``"remote"``) is always valid too.
+
+Filter values are lowercase and hyphenated (``"full-time"``, not
+``"full_time"``); the API matches them exactly and an unrecognised value simply
+matches nothing.
 
 Example::
 
@@ -46,16 +50,18 @@ class WorkModel(_StrEnum):
 class EmploymentType(_StrEnum):
     """Nature of the engagement (``employment_type``)."""
 
-    FULL_TIME = "full_time"
-    PART_TIME = "part_time"
+    FULL_TIME = "full-time"
+    PART_TIME = "part-time"
     CONTRACT = "contract"
     INTERNSHIP = "internship"
+    FREELANCE = "freelance"
     TEMPORARY = "temporary"
 
 
 class ExperienceLevel(_StrEnum):
     """Seniority of the role (``experience_level``)."""
 
+    INTERN = "intern"
     ENTRY = "entry"
     MID = "mid"
     SENIOR = "senior"
@@ -66,11 +72,12 @@ class ExperienceLevel(_StrEnum):
 class CompensationPeriod(_StrEnum):
     """Period a compensation range refers to (``compensation.period``)."""
 
-    HOUR = "hour"
-    DAY = "day"
-    WEEK = "week"
-    MONTH = "month"
-    YEAR = "year"
+    HOURLY = "hourly"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    YEARLY = "yearly"
+    PER_DIEM = "per-diem"
 
 
 class SkillType(_StrEnum):

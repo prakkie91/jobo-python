@@ -5,7 +5,6 @@ from jobo_enterprise.feed import JobsFeedClient, AsyncJobsFeedClient
 from jobo_enterprise.search import JobsSearchClient, AsyncJobsSearchClient
 from jobo_enterprise.companies import CompaniesClient, AsyncCompaniesClient
 from jobo_enterprise.locations import LocationsClient, AsyncLocationsClient
-from jobo_enterprise.auto_apply import AutoApplyClient, AsyncAutoApplyClient
 from jobo_enterprise.enums import (
     WorkModel,
     EmploymentType,
@@ -25,6 +24,7 @@ from jobo_enterprise.models import (
     # Feed
     LocationFilter,
     JobFeedRequest,
+    ManagedJobFeedRequest,
     JobFeedResponse,
     ExpiredJobIdsResponse,
     # Search
@@ -52,29 +52,19 @@ from jobo_enterprise.models import (
     CompanyFeaturedList,
     CompanyKeyEvent,
     CompanyEventAppearance,
-    # AutoApply
-    AutoApplySessionResponse,
-    FieldAnswer,
-    FieldOption,
-    FormFieldInfo,
-    ValidationError,
-    StartAutoApplySessionRequest,
-    SetAutoApplyAnswersRequest,
-    RunAutoApplyRequest,
-    RunAutoApplyResponse,
-    AutoApplyStepLog,
-    AutoApplyProfileRequest,
-    AutoApplyProfileResponse,
 )
 from jobo_enterprise.exceptions import (
     JoboError,
     JoboAuthenticationError,
+    JoboPermissionError,
+    JoboNotFoundError,
     JoboRateLimitError,
     JoboValidationError,
+    JoboCursorRestartRequiredError,
     JoboServerError,
 )
 
-__version__ = "3.0.0"
+__version__ = "4.0.0"
 
 __all__ = [
     # Main clients
@@ -89,8 +79,6 @@ __all__ = [
     "AsyncCompaniesClient",
     "LocationsClient",
     "AsyncLocationsClient",
-    "AutoApplyClient",
-    "AsyncAutoApplyClient",
     # Enums (closed value sets)
     "WorkModel",
     "EmploymentType",
@@ -108,6 +96,7 @@ __all__ = [
     # Feed models
     "LocationFilter",
     "JobFeedRequest",
+    "ManagedJobFeedRequest",
     "JobFeedResponse",
     "ExpiredJobIdsResponse",
     # Search models
@@ -135,23 +124,13 @@ __all__ = [
     "CompanyFeaturedList",
     "CompanyKeyEvent",
     "CompanyEventAppearance",
-    # AutoApply models
-    "AutoApplySessionResponse",
-    "FieldAnswer",
-    "FieldOption",
-    "FormFieldInfo",
-    "ValidationError",
-    "StartAutoApplySessionRequest",
-    "SetAutoApplyAnswersRequest",
-    "RunAutoApplyRequest",
-    "RunAutoApplyResponse",
-    "AutoApplyStepLog",
-    "AutoApplyProfileRequest",
-    "AutoApplyProfileResponse",
     # Exceptions
     "JoboError",
     "JoboAuthenticationError",
+    "JoboPermissionError",
+    "JoboNotFoundError",
     "JoboRateLimitError",
     "JoboValidationError",
+    "JoboCursorRestartRequiredError",
     "JoboServerError",
 ]

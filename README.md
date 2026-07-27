@@ -2,7 +2,7 @@
 
 # Jobo Enterprise — Python Client
 
-**Access millions of job listings, geocode locations, and automate job applications — all from a single API.**
+**Access millions of job listings, enriched company profiles, and geocoding — all from a single API.**
 
 [![PyPI](https://img.shields.io/pypi/v/jobo-enterprise)](https://pypi.org/project/jobo-enterprise/)
 [![Python](https://img.shields.io/pypi/pyversions/jobo-enterprise)](https://pypi.org/project/jobo-enterprise/)
@@ -12,12 +12,12 @@
 
 ## Features
 
-| Sub-client          | Property             | Description                                              |
-| ------------------- | -------------------- | -------------------------------------------------------- |
-| **Jobs Feed**       | `client.feed`        | Bulk job feed with cursor-based pagination (45+ ATS)     |
-| **Jobs Search**     | `client.search`      | Full-text search with location, remote, and source filters |
-| **Locations**       | `client.locations`   | Geocode location strings into structured coordinates     |
-| **Auto Apply**      | `client.auto_apply`  | Automate job applications with form field discovery      |
+| Sub-client      | Property           | Description                                                     |
+| --------------- | ------------------ | --------------------------------------------------------------- |
+| **Jobs Feed**   | `client.feed`      | Bulk and managed job feeds with cursor-based pagination (106 ATS) |
+| **Jobs Search** | `client.search`    | Full-text search, filters, facets, and single-job lookup          |
+| **Companies**   | `client.companies` | Enriched company profiles and per-company job listings            |
+| **Locations**   | `client.locations` | Geocode location strings into structured coordinates              |
 
 Both sync (`JoboClient`) and async (`AsyncJoboClient`) are included.
 
@@ -84,14 +84,37 @@ for job in client.feed.iter_jobs(batch_size=1000, sources=["greenhouse"]):
     save_to_database(job)
 ```
 
-### Expired job IDs
+### Incremental sync
+
+After the initial backfill, pass `updated_after` to pick up only what changed.
+Scans page by immutable creation time by default (`stable_scan`), so records
+cannot shift across page boundaries while you are reading.
 
 ```python
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-expired_since = datetime.utcnow() - timedelta(days=1)
+since = datetime.now(timezone.utc) - timedelta(hours=1)
 
-for job_id in client.feed.iter_expired_job_ids(expired_since=expired_since):
+for job in client.feed.iter_jobs(updated_after=since, batch_size=1000):
+    upsert(job)
+```
+
+### Managed feed
+
+Jobs from the companies you configured through **Managed Job Scraping** in the
+Jobo portal. Same batch and cursor semantics, minus the `locations` filter.
+
+```python
+for job in client.feed.iter_managed_jobs(batch_size=1000):
+    save_to_database(job)
+```
+
+### Expired job IDs
+
+`expired_since` is optional and defaults to 24 hours ago. Maximum lookback is 7 days.
+
+```python
+for job_id in client.feed.iter_expired_job_ids():
     mark_as_expired(job_id)
 ```
 
@@ -121,7 +144,27 @@ print(f"Found {results.total} jobs across {results.total_pages} pages")
 > **Closed value sets.** Parameters with a fixed set of accepted values ship as
 > enums for discoverability — `WorkModel`, `EmploymentType`, `ExperienceLevel`,
 > `CompensationPeriod`, and `SkillType`. Each member subclasses `str`, so passing
-> the equivalent literal (e.g. `"remote"`) is always valid too.
+> the equivalent literal (e.g. `"remote"`) is always valid too. Values are
+> lowercase and hyphenated (`"full-time"`, `"per-diem"`); the API matches them
+> exactly, so a misspelt value simply matches nothing.
+
+### Fetch one job
+
+```python
+job = client.search.get_job("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+```
+
+Unmetered — this endpoint deducts no credits, which makes it a cheap way to wire
+up an integration.
+
+### Trim the payload
+
+Omit `include_fields` for the whole job, pass a subset to keep only those heavy
+fields, or pass an empty value for core fields only.
+
+```python
+results = client.search.search(q="data scientist", include_fields="summary", page_size=50)
+```
 
 ### Advanced search (typed filters & facets)
 
@@ -184,54 +227,12 @@ for location in result.locations:
 
 ---
 
-## Auto Apply — `client.auto_apply`
+## Auto Apply
 
-Automate job applications with form field discovery and filling.
-
-```python
-from jobo_enterprise import FieldAnswer
-
-# Start a session
-session = client.auto_apply.start_session(job.apply_url)
-
-print(f"Provider: {session.provider_display_name}")
-print(f"Fields: {len(session.fields)}")
-
-# Fill in fields — `type` mirrors the FormFieldInfo.type of each field
-answers = [
-    FieldAnswer(field_id="first_name", type="text", value="John"),
-    FieldAnswer(field_id="last_name", type="text", value="Doe"),
-    FieldAnswer(field_id="email", type="text", value="john@example.com"),
-]
-
-result = client.auto_apply.set_answers(session.session_id, answers)
-
-if result.is_terminal:
-    print("Application submitted!")
-
-# Clean up
-client.auto_apply.end_session(session.session_id)
-```
-
-### Profiles & one-shot run
-
-```python
-from jobo_enterprise import AutoApplyProfileRequest
-
-profile = client.auto_apply.create_profile(
-    AutoApplyProfileRequest(
-        name="Default",
-        first_name="John",
-        last_name="Doe",
-        email="john@example.com",
-        phone="+1-555-0100",
-    )
-)
-
-# Run the full flow end-to-end against the stored profile
-run = client.auto_apply.run(profile.id, job.apply_url)
-print(run.status, run.steps_completed, run.fields_filled)
-```
+Not covered by this client. The Auto Apply contract is profileless and
+callback-driven, and application creation is not yet open to traffic. Call it
+over plain HTTPS — see the
+[Auto Apply reference](https://jobo.world/docs/api-reference/auto-apply/auto-apply).
 
 ---
 
@@ -262,11 +263,17 @@ asyncio.run(main())
 
 ## Error Handling
 
+`429` and `503` are retried for you with bounded backoff, honouring
+`Retry-After`. Everything else raises immediately, as a subclass of `JoboError`:
+
 ```python
 from jobo_enterprise import (
     JoboAuthenticationError,
+    JoboPermissionError,
+    JoboNotFoundError,
     JoboRateLimitError,
     JoboValidationError,
+    JoboCursorRestartRequiredError,
     JoboServerError,
     JoboError,
 )
@@ -275,15 +282,24 @@ try:
     results = client.search.search(q="engineer")
 except JoboAuthenticationError:
     print("Invalid API key")
+except JoboPermissionError:
+    print("Key is not entitled to this resource")
+except JoboNotFoundError:
+    print("No such job or company")
 except JoboRateLimitError as e:
     print(f"Rate limited. Retry after {e.retry_after}s")
 except JoboValidationError as e:
-    print(f"Bad request: {e.detail}")
+    print(f"Bad request: {e.detail} ({e.code})")
+except JoboCursorRestartRequiredError:
+    print("Feed cursor is spent — discard it and start a new scan")
 except JoboServerError:
     print("Server error — try again later")
 ```
 
-## Supported ATS Sources (45+)
+Every exception carries the API's machine-readable problem `code` when one is
+supplied, alongside `status_code`, `detail`, and the raw `response_body`.
+
+## Supported ATS Sources (106)
 
 | Category           | Sources                                                                                                                                       |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -293,22 +309,27 @@ except JoboServerError:
 | **SMB & Niche**    | `gohire`, `recooty`, `applicantpro`, `hiringthing`, `careerplug`, `hirehive`, `kula`, `careerpuck`, `talnet`, `jobscore`                      |
 | **Specialized**    | `freshteam`, `isolved`, `joincom`, `eightfold`, `phenompeople`                                                                                |
 
+The full catalogue of 106 providers is listed in the
+[API documentation](https://jobo.world/docs/sources). Treat it as an open set —
+new `provider_id` values appear as platforms are added.
+
 ## Configuration
 
 | Parameter      | Default                       | Description                  |
 | -------------- | ----------------------------- | ---------------------------- |
-| `api_key`      | _required_                    | Your API key                 |
-| `base_url`     | `https://connect.jobo.world` | API base URL                 |
-| `timeout`      | `30.0`                        | Request timeout (seconds)    |
-| `httpx_client` | `None`                        | Custom httpx client          |
+| `api_key`      | _required_                   | Your API key                          |
+| `base_url`     | `https://connect.jobo.world` | API base URL                          |
+| `timeout`      | `30.0`                       | Request timeout (seconds)             |
+| `feed_timeout` | `120.0`                      | Response timeout for the feed routes  |
+| `httpx_client` | `None`                       | Custom httpx client                   |
 
 ## Use Cases
 
-- **Build a job board** — Search and display jobs from 45+ ATS platforms
+- **Build a job board** — Search and display jobs from 106 ATS platforms
 - **Job aggregator** — Bulk-sync millions of listings with the feed endpoint
 - **ATS data pipeline** — Pull jobs from Greenhouse, Lever, Workday, etc. into your data warehouse
 - **Recruitment tools** — Power candidate-facing job search experiences
-- **Auto-apply automation** — Automate job applications at scale
+- **Company intelligence** — Enrich listings with funding, headcount, and tech-stack data
 - **Location intelligence** — Geocode and normalize job locations
 
 ## Links

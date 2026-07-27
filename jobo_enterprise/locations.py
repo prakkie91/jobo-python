@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from jobo_enterprise.exceptions import _handle_error
+from jobo_enterprise._transport import arequest, request
 from jobo_enterprise.models import GeocodeResultItem
 
 
@@ -27,10 +27,8 @@ class LocationsClient:
             A :class:`GeocodeResultItem` with resolved locations.
         """
         params = {"location": location}
-        resp = self._client.get("/api/locations/geocode", params=params)
-        if resp.status_code != 200:
-            _handle_error(resp)
-        return GeocodeResultItem.model_validate(resp.json())
+        payload = request(self._client, "GET", "/api/locations/geocode", params=params)
+        return GeocodeResultItem.model_validate(payload)
 
 
 class AsyncLocationsClient:
@@ -52,7 +50,5 @@ class AsyncLocationsClient:
             A :class:`GeocodeResultItem` with resolved locations.
         """
         params = {"location": location}
-        resp = await self._client.get("/api/locations/geocode", params=params)
-        if resp.status_code != 200:
-            _handle_error(resp)
-        return GeocodeResultItem.model_validate(resp.json())
+        payload = await arequest(self._client, "GET", "/api/locations/geocode", params=params)
+        return GeocodeResultItem.model_validate(payload)

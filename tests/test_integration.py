@@ -8,11 +8,17 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 import pytest
 
 from jobo_enterprise.client import AsyncJoboClient, JoboClient
-from jobo_enterprise.exceptions import JoboAuthenticationError
+from jobo_enterprise.enums import EmploymentType, ExperienceLevel
+from jobo_enterprise.exceptions import (
+    JoboAuthenticationError,
+    JoboNotFoundError,
+    JoboPermissionError,
+)
 from jobo_enterprise.models import Job
 
 API_KEY = os.environ.get("JOBO_API_KEY")
@@ -238,27 +244,104 @@ class TestSyncSearchFacets:
         assert isinstance(response.facets, dict)
 
 
-# ── Sync client: AutoApply (disabled – not yet implemented) ─────────────
+# ── Sync client: Job by id ─────────────────────────────────────────────
 
 
 @requires_api_key
-@pytest.mark.skip(reason="Auto Apply is not yet implemented")
-class TestSyncAutoApply:
-    def test_start_auto_apply_session_with_invalid_url(self, client: JoboClient):
-        # Using an invalid URL should return a response
-        response = client.auto_apply.start_session("https://invalid-url-that-does-not-exist.com/jobs/123")
+class TestSyncJobById:
+    def test_get_job_returns_the_same_job(self, client: JoboClient):
+        search = client.search.search(q="engineer", page_size=1)
+        if not search.jobs:
+            pytest.skip("No jobs available to resolve a job id")
+
+        expected = search.jobs[0]
+        job = client.search.get_job(expected.id)
+
+        assert job.id == expected.id
+        assert job.title == expected.title
+
+    def test_get_unknown_job_raises_not_found(self, client: JoboClient):
+        with pytest.raises(JoboNotFoundError):
+            client.search.get_job(uuid4())
+
+
+# ── Sync client: Managed feed ──────────────────────────────────────────
+
+
+@requires_api_key
+class TestSyncManagedFeed:
+    def test_managed_feed_returns_jobs_or_rejects_the_key(self, client: JoboClient):
+        # Managed Job Scraping is per-account. A customer key with no managed
+        # sources returns an empty batch; a sandbox or marketplace key has no
+        # customer account at all and is rejected outright.
+        try:
+            response = client.feed.get_managed_jobs(batch_size=5)
+        except JoboPermissionError:
+            pytest.skip("Key carries no customer account — managed feed not available")
+
+        assert response.jobs is not None
+        assert len(response.jobs) <= 5
+
+
+# ── Sync client: canonical filter values ───────────────────────────────
+
+
+@requires_api_key
+class TestSyncFilterValues:
+    def test_employment_type_carries_the_canonical_wire_value(self, client: JoboClient):
+        # The documented canonical spelling is hyphenated. (The index also
+        # happens to match the pre-4.0.0 underscored spelling, so this was a
+        # correctness fix rather than a broken filter.)
+        assert EmploymentType.FULL_TIME == "full-time"
+        assert EmploymentType.PART_TIME == "part-time"
+
+        response = client.search.search(employment_type=EmploymentType.FULL_TIME, page_size=1)
+        assert response.total > 0
+
+    def test_freelance_is_a_real_employment_type(self, client: JoboClient):
+        # Absent from the enum before 4.0.0 — callers had to pass the literal.
+        assert EmploymentType.FREELANCE == "freelance"
+
+        response = client.search.search(employment_type=EmploymentType.FREELANCE, page_size=1)
+        assert response.total > 0
+
+    def test_experience_level_intern_is_a_real_value(self, client: JoboClient):
+        # Absent from the enum before 4.0.0.
+        assert ExperienceLevel.INTERN == "intern"
+
+        response = client.search.search(experience_level=ExperienceLevel.INTERN, page_size=1)
+        assert response.total > 0
+
+
+# ── Sync client: field selection and incremental sync ──────────────────
+
+
+@requires_api_key
+class TestSyncFieldSelection:
+    def test_include_fields_is_accepted(self, client: JoboClient):
+        # Core fields are always returned whatever include_fields asks for.
+        # We do not assert that the heavy fields are dropped: the API currently
+        # returns them for an empty value, so that behaviour is not the client's
+        # to pin.
+        response = client.search.search(q="engineer", include_fields="summary", page_size=1)
+        assert len(response.jobs) > 0
+        assert response.jobs[0].title
+
+    def test_feed_accepts_updated_after_and_stable_scan(self, client: JoboClient):
+        response = client.feed.get_jobs(
+            updated_after=datetime.now(timezone.utc) - timedelta(hours=6),
+            stable_scan=True,
+            batch_size=5,
+        )
+
+        assert response.jobs is not None
+        assert len(response.jobs) <= 5
+
+    def test_expired_since_is_optional(self, client: JoboClient):
+        response = client.feed.get_expired_job_ids(batch_size=5)
 
         assert response is not None
-        # The provider detection may fail or succeed - just check response structure
-        assert response.session_id is not None
-
-    def test_end_auto_apply_session_with_invalid_session(self, client: JoboClient):
-        from uuid import uuid4
-
-        result = client.auto_apply.end_session(uuid4())
-
-        # Should return false for non-existent session
-        assert result is False
+        assert response.job_ids is not None
 
 
 # ── Async client ─────────────────────────────────────────────────────

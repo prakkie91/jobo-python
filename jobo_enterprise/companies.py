@@ -8,7 +8,7 @@ from uuid import UUID
 
 import httpx
 
-from jobo_enterprise.exceptions import _handle_error
+from jobo_enterprise._transport import arequest, request
 from jobo_enterprise.models import Company, JobSearchResponse
 
 
@@ -41,10 +41,8 @@ class CompaniesClient:
         Returns:
             A :class:`Company` with the full enriched profile.
         """
-        resp = self._client.get(f"/api/companies/{company_id}")
-        if resp.status_code != 200:
-            _handle_error(resp)
-        return Company.model_validate(resp.json())
+        payload = request(self._client, "GET", f"/api/companies/{company_id}")
+        return Company.model_validate(payload)
 
     def get_jobs(
         self,
@@ -66,10 +64,10 @@ class CompaniesClient:
             A :class:`JobSearchResponse` scoped to this company.
         """
         params = _jobs_params(posted_after, page, page_size)
-        resp = self._client.get(f"/api/companies/{company_id}/jobs", params=params)
-        if resp.status_code != 200:
-            _handle_error(resp)
-        return JobSearchResponse.model_validate(resp.json())
+        payload = request(
+            self._client, "GET", f"/api/companies/{company_id}/jobs", params=params
+        )
+        return JobSearchResponse.model_validate(payload)
 
 
 class AsyncCompaniesClient:
@@ -83,10 +81,8 @@ class AsyncCompaniesClient:
 
     async def get(self, company_id: Union[UUID, str]) -> Company:
         """Fetch a fully enriched company profile (GET /api/companies/{id})."""
-        resp = await self._client.get(f"/api/companies/{company_id}")
-        if resp.status_code != 200:
-            _handle_error(resp)
-        return Company.model_validate(resp.json())
+        payload = await arequest(self._client, "GET", f"/api/companies/{company_id}")
+        return Company.model_validate(payload)
 
     async def get_jobs(
         self,
@@ -98,7 +94,7 @@ class AsyncCompaniesClient:
     ) -> JobSearchResponse:
         """List jobs that belong to a specific company (GET /api/companies/{id}/jobs)."""
         params = _jobs_params(posted_after, page, page_size)
-        resp = await self._client.get(f"/api/companies/{company_id}/jobs", params=params)
-        if resp.status_code != 200:
-            _handle_error(resp)
-        return JobSearchResponse.model_validate(resp.json())
+        payload = await arequest(
+            self._client, "GET", f"/api/companies/{company_id}/jobs", params=params
+        )
+        return JobSearchResponse.model_validate(payload)

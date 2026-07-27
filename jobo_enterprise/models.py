@@ -113,22 +113,47 @@ class LocationFilter(BaseModel):
 
 
 class JobFeedRequest(BaseModel):
-    """Request body for the jobs feed endpoint (POST /api/jobs/feed)."""
+    """Request body for the jobs feed endpoint (POST /api/jobs/feed).
+
+    The cursor preserves the filters and batch size from the first request, so
+    a continuation carries the cursor alone; start a new scan to change them.
+    """
 
     locations: Optional[List[LocationFilter]] = None
     sources: Optional[List[str]] = None
     work_models: Optional[List[str]] = None
+    employment_types: Optional[List[str]] = None
+    experience_levels: Optional[List[str]] = None
     posted_after: Optional[datetime] = None
+    updated_after: Optional[datetime] = None
+    stable_scan: Optional[bool] = None
+    cursor: Optional[str] = None
+    batch_size: int = Field(default=1000, ge=1, le=1000)
+
+
+class ManagedJobFeedRequest(BaseModel):
+    """Request body for the managed jobs feed (POST /api/jobs/feed/managed).
+
+    Same shape as :class:`JobFeedRequest` minus the ``locations`` filter, which
+    the managed endpoint does not support.
+    """
+
+    sources: Optional[List[str]] = None
+    work_models: Optional[List[str]] = None
+    posted_after: Optional[datetime] = None
+    updated_after: Optional[datetime] = None
     cursor: Optional[str] = None
     batch_size: int = Field(default=1000, ge=1, le=1000)
 
 
 class JobFeedResponse(BaseModel):
-    """Response from the jobs feed endpoint."""
+    """Response from the jobs feed endpoints."""
 
     jobs: List[Job] = Field(default_factory=list)
     next_cursor: Optional[str] = None
     has_more: bool = False
+    estimated_total: Optional[int] = None
+    """Estimated size of the scan. Returned on the first page only."""
 
 
 class ExpiredJobIdsResponse(BaseModel):
@@ -160,6 +185,7 @@ class JobSearchBodyRequest(BaseModel):
     """Request body for the advanced search endpoint (POST /api/jobs/search)."""
 
     queries: Optional[List[str]] = None
+    search_description: Optional[bool] = None
     locations: Optional[List[str]] = None
     sources: Optional[List[str]] = None
     skills: Optional[InclusionExclusionFilter] = None
@@ -170,9 +196,14 @@ class JobSearchBodyRequest(BaseModel):
     experience_levels: Optional[List[str]] = None
     salary_usd: Optional[RangeFilter] = None
     posted_after: Optional[datetime] = None
+    posted_before: Optional[datetime] = None
+    discovered_after: Optional[datetime] = None
+    discovered_before: Optional[datetime] = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=25, ge=1, le=100)
     include_facets: Optional[List[str]] = None
+    include_fields: Optional[List[str]] = None
+    """Heavy fields to keep. ``None`` = the whole job; ``[]`` = core fields only."""
 
 
 class JobFacet(BaseModel):
@@ -423,170 +454,3 @@ class Company(BaseModel):
     investor_types: List[str] = Field(default_factory=list)
 
     page_rank: Optional[float] = None
-
-
-# ── AutoApply models ─────────────────────────────────────────────────
-
-
-class FieldOption(BaseModel):
-    """A single option in a select, radio group, or checkbox group."""
-
-    value: str
-    text: str = ""
-
-
-class FormFieldInfo(BaseModel):
-    """Information about a form field discovered on an application page."""
-
-    field_id: str
-    type: str  # snake_case FieldType, e.g. "text", "text_area", "select"
-    label: str = ""
-    is_required: bool = False
-    options: List[FieldOption] = Field(default_factory=list)
-    handler_type: Optional[str] = None
-
-
-class FieldAnswer(BaseModel):
-    """An answer to set on a specific form field."""
-
-    field_id: str
-    type: str  # snake_case FieldType matching the FormFieldInfo
-    value: str = ""
-    typeahead_selection: Optional[str] = None
-    clear_first: bool = True
-    handler_type: Optional[str] = None
-
-
-class ValidationError(BaseModel):
-    """A validation error displayed on the application form."""
-
-    field_id: Optional[str] = None
-    message: str
-
-
-class StartAutoApplySessionRequest(BaseModel):
-    """Request to start an auto-apply session."""
-
-    apply_url: str
-
-
-class SetAutoApplyAnswersRequest(BaseModel):
-    """Request to set answers for an auto-apply session."""
-
-    session_id: UUID
-    answers: List[FieldAnswer]
-
-
-class AutoApplySessionResponse(BaseModel):
-    """Response from an auto-apply session operation."""
-
-    session_id: UUID
-    provider_id: str
-    provider_display_name: str
-    success: bool
-    status: str  # snake_case ApplyFlowStatus, e.g. "form_ready", "submitted"
-    error: Optional[str] = None
-    current_url: Optional[str] = None
-    is_terminal: bool = False
-    validation_errors: List[ValidationError] = Field(default_factory=list)
-    fields: List[FormFieldInfo] = Field(default_factory=list)
-
-
-class RunAutoApplyRequest(BaseModel):
-    """Request to run the full auto-apply flow against a stored profile."""
-
-    profile_id: UUID
-    apply_url: str
-
-
-class AutoApplyStepLog(BaseModel):
-    """A single step in a full auto-apply run."""
-
-    step: int
-    action: str
-    fields_count: int
-    status: str
-    error: Optional[str] = None
-    timestamp: datetime
-
-
-class RunAutoApplyResponse(BaseModel):
-    """Response from a full auto-apply run."""
-
-    session_id: UUID
-    profile_id: UUID
-    apply_url: str
-    provider_id: str
-    provider_display_name: str
-    success: bool
-    status: str
-    error: Optional[str] = None
-    steps_completed: int = 0
-    fields_filled: int = 0
-    duration_ms: int = 0
-    step_log: List[AutoApplyStepLog] = Field(default_factory=list)
-
-
-class AutoApplyProfileRequest(BaseModel):
-    """Applicant profile used by auto-apply sessions (create/update body)."""
-
-    name: str = "Default"
-
-    # Personal
-    first_name: str = ""
-    last_name: str = ""
-    email: str = ""
-    phone: str = ""
-    linkedin_url: Optional[str] = None
-    website_url: Optional[str] = None
-    portfolio_url: Optional[str] = None
-
-    # Address
-    address_line1: Optional[str] = None
-    address_line2: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    zip_code: Optional[str] = None
-    country: Optional[str] = None
-
-    # Resume
-    resume_text: Optional[str] = None
-    resume_file_path: Optional[str] = None
-    cover_letter_template: Optional[str] = None
-
-    # Work Authorization / EEO
-    work_authorization: Optional[str] = None
-    requires_sponsorship: Optional[bool] = None
-    gender: Optional[str] = None
-    ethnicity: Optional[str] = None
-    veteran_status: Optional[str] = None
-    disability_status: Optional[str] = None
-
-    # Salary / Availability
-    desired_salary: Optional[str] = None
-    salary_expectation_currency: Optional[str] = None
-    available_start_date: Optional[str] = None
-    willing_to_relocate: Optional[bool] = None
-
-    # Education
-    highest_degree: Optional[str] = None
-    field_of_study: Optional[str] = None
-    university: Optional[str] = None
-    graduation_year: Optional[str] = None
-
-    # Experience
-    years_of_experience: Optional[str] = None
-    current_job_title: Optional[str] = None
-    current_company: Optional[str] = None
-
-    # Custom Q&A
-    custom_answers: Optional[Dict[str, str]] = None
-
-
-class AutoApplyProfileResponse(AutoApplyProfileRequest):
-    """An auto-apply profile as returned by the API."""
-
-    id: UUID
-    custom_answers: Dict[str, str] = Field(default_factory=dict)
-    created_at: datetime
-    updated_at: datetime
